@@ -76,6 +76,9 @@ public:
 
 
 	void OnLoadingPhaseComplete(ELoadingPhase::Type LoadingPhase, bool bPhaseSuccessful);
+		// Returns true if the specified tracker is currently tracked
+
+	bool IsTrackerTracked(const FName& MotionSource) const;
 
 private:
 

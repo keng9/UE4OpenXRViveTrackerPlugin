@@ -139,6 +139,34 @@ public:
 		return ViveTrackerInstance;
 	}
 
+	virtual bool IsTrackerTracked(const FName& MotionSource) override
+
+	{
+
+		if (!ViveTrackerInstance.IsValid())
+
+		{
+
+			CreateInputDevice(FSlateApplication::Get().GetPlatformApplication()->GetMessageHandler());
+
+		}
+
+		
+
+		if (ViveTrackerInstance.IsValid())
+
+		{
+
+			return ViveTrackerInstance->IsTrackerTracked(MotionSource);
+
+		}
+
+		
+
+		return false;
+
+	}
+
 private:
 	TSharedPtr<FOpenXRViveTrackerPlugin> ViveTrackerInstance;
 };
@@ -674,5 +702,78 @@ FOpenXRHMD* FOpenXRViveTrackerPlugin::GetXRSystem() const
 	return nullptr;
 }
 
+bool FOpenXRViveTrackerPlugin::IsTrackerTracked(const FName& MotionSource) const
+
+{
+
+	FOpenXRHMD* OpenXRHMD = GetXRSystem();
+
+	if (!OpenXRHMD || !Trackers.Contains(MotionSource))
+
+	{
+
+		return false;
+
+	}
+
+
+
+	XrSession Session = OpenXRHMD->GetSession();
+
+	if (Session == XR_NULL_HANDLE)
+
+	{
+
+		return false;
+
+	}
+
+
+
+	const FViveTracker* Tracker = Trackers.Find(MotionSource);
+
+	if (Tracker->GripDeviceId < 0 || !Tracker->bIsActive)
+
+	{
+
+		return false;
+
+	}
+
+
+
+	XrActionStateGetInfo GetInfo;
+
+	GetInfo.type = XR_TYPE_ACTION_STATE_GET_INFO;
+
+	GetInfo.next = nullptr;
+
+	GetInfo.subactionPath = XR_NULL_PATH;
+
+	GetInfo.action = Tracker->GripAction;
+
+
+
+	XrActionStatePose State;
+
+	State.type = XR_TYPE_ACTION_STATE_POSE;
+
+	State.next = nullptr;
+
+	XrResult Result = xrGetActionStatePose(Session, &GetInfo, &State);
+
+	if (XR_SUCCEEDED(Result) && State.isActive)
+
+	{
+
+		return OpenXRHMD->GetIsTracked(Tracker->GripDeviceId);
+
+	}
+
+
+
+	return false;
+
+}
 #undef LOCTEXT_NAMESPACE
 
