@@ -1,4 +1,3 @@
-
 // Contains snippets from the Unreal Engine 4 source code.
 // Copyright Epic Games, Inc. All Rights Reserved.
 
@@ -188,6 +187,8 @@ FViveTracker::FViveTracker(XrPath InUserPath, XrPath InPersistentPath, const cha
 	, VibrationAction(XR_NULL_HANDLE)
 	, GripDeviceId(-1)
 	, GripActionSpace(XR_NULL_HANDLE)
+	, bIsTracked(false)
+	, LastTrackingStatusUpdateTime(0.0)
 {
 	bIsActive = (PersistentPath != XR_NULL_PATH);
 }
@@ -198,6 +199,29 @@ void FViveTracker::AddActionDevices(FOpenXRHMD* HMD)
 	{
 		GripDeviceId = HMD->AddActionDevice(GripAction, RolePath);
 	}
+}
+
+void FViveTracker::UpdateTrackingStatus(XrSession Session, FOpenXRHMD* OpenXRHMD)
+{
+	if (GripDeviceId < 0 || !bIsActive || Session == XR_NULL_HANDLE)
+	{
+		bIsTracked = false;
+		return;
+	}
+
+	XrActionStateGetInfo GetInfo;
+	GetInfo.type = XR_TYPE_ACTION_STATE_GET_INFO;
+	GetInfo.next = nullptr;
+	GetInfo.subactionPath = XR_NULL_PATH;
+	GetInfo.action = GripAction;
+
+	XrActionStatePose State;
+	State.type = XR_TYPE_ACTION_STATE_POSE;
+	State.next = nullptr;
+	XrResult Result = xrGetActionStatePose(Session, &GetInfo, &State);
+	
+	bIsTracked = XR_SUCCEEDED(Result) && State.isActive && OpenXRHMD->GetIsTracked(GripDeviceId);
+	LastTrackingStatusUpdateTime = FPlatformTime::Seconds();
 }
 
 
@@ -607,7 +631,28 @@ void FOpenXRViveTrackerPlugin::EnumerateSources(TArray<FMotionControllerSource>&
 
 void FOpenXRViveTrackerPlugin::Tick(float DeltaTime)
 {
+	static double LastUpdateTime = 0.0;
+	double CurrentTime = FPlatformTime::Seconds();
+	
+	// Only update tracker status every 100ms
+	if (CurrentTime - LastUpdateTime >= 0.1)
+	{
+		FOpenXRHMD* OpenXRHMD = GetXRSystem();
+		if (OpenXRHMD)
+		{
+			XrSession Session = OpenXRHMD->GetSession();
+			if (Session != XR_NULL_HANDLE)
+			{
+				for (auto& TrackerPair : Trackers)
+				{
+					TrackerPair.Value.UpdateTrackingStatus(Session, OpenXRHMD);
+				}
+			}
+		}
+		LastUpdateTime = CurrentTime;
+	}
 
+	SendControllerEvents();
 }
 
 void FOpenXRViveTrackerPlugin::SendControllerEvents()
@@ -703,77 +748,16 @@ FOpenXRHMD* FOpenXRViveTrackerPlugin::GetXRSystem() const
 }
 
 bool FOpenXRViveTrackerPlugin::IsTrackerTracked(const FName& MotionSource) const
-
 {
-
-	FOpenXRHMD* OpenXRHMD = GetXRSystem();
-
-	if (!OpenXRHMD || !Trackers.Contains(MotionSource))
-
+	if (!Trackers.Contains(MotionSource))
 	{
-
 		return false;
-
 	}
-
-
-
-	XrSession Session = OpenXRHMD->GetSession();
-
-	if (Session == XR_NULL_HANDLE)
-
-	{
-
-		return false;
-
-	}
-
-
 
 	const FViveTracker* Tracker = Trackers.Find(MotionSource);
-
-	if (Tracker->GripDeviceId < 0 || !Tracker->bIsActive)
-
-	{
-
-		return false;
-
-	}
-
-
-
-	XrActionStateGetInfo GetInfo;
-
-	GetInfo.type = XR_TYPE_ACTION_STATE_GET_INFO;
-
-	GetInfo.next = nullptr;
-
-	GetInfo.subactionPath = XR_NULL_PATH;
-
-	GetInfo.action = Tracker->GripAction;
-
-
-
-	XrActionStatePose State;
-
-	State.type = XR_TYPE_ACTION_STATE_POSE;
-
-	State.next = nullptr;
-
-	XrResult Result = xrGetActionStatePose(Session, &GetInfo, &State);
-
-	if (XR_SUCCEEDED(Result) && State.isActive)
-
-	{
-
-		return OpenXRHMD->GetIsTracked(Tracker->GripDeviceId);
-
-	}
-
-
-
-	return false;
-
+	
+	// Use cached tracking status
+	return Tracker->bIsTracked;
 }
 #undef LOCTEXT_NAMESPACE
 

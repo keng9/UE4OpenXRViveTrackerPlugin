@@ -1,5 +1,3 @@
-
-
 #pragma once
 
 #include "CoreMinimal.h"
@@ -28,9 +26,12 @@ struct FViveTracker
 	int32			GripDeviceId;
 	XrSpace			GripActionSpace;
 	bool			bIsActive;
+	bool			bIsTracked;
+	double			LastTrackingStatusUpdateTime;
 
 	FViveTracker(XrPath InUserPath, XrPath InPersistentPath, const char* InName);
 	void AddActionDevices(FOpenXRHMD* HMD);
+	void UpdateTrackingStatus(XrSession Session, FOpenXRHMD* OpenXRHMD);
 };
 
 
