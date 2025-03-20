@@ -22,6 +22,9 @@ struct FViveTracker
 	XrPath			RolePath;
 	XrAction		GripAction;
 	XrAction		VibrationAction;
+	XrAction		TriggerAction;
+	XrAction		MenuAction;
+	XrAction		SqueezeAction;
 	int32			GripDeviceId;
 	XrSpace			GripActionSpace;
 	bool			bIsActive;

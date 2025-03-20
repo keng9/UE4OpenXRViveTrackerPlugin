@@ -13,10 +13,10 @@
 
 #define BASE_ROLE_PATH TEXT("/user/vive_tracker_htcx/role/")
 
-//const FKey ViveTracker_System_Click("ViveTracker_System_Click");
-//const FKey ViveTracker_Menu_Click("ViveTracker_Menu_Click");
-//const FKey ViveTracker_Trigger_Click("ViveTracker_Trigger_Click");
-//const FKey ViveTracker_Squeeze_Click("ViveTracker_Squeeze_Click");
+// const FKey ViveTracker_System_Click("ViveTracker_System_Click");
+const FKey ViveTracker_Menu_Click("ViveTracker_Menu_Click");
+const FKey ViveTracker_Trigger_Click("ViveTracker_Trigger_Click");
+const FKey ViveTracker_Squeeze_Click("ViveTracker_Squeeze_Click");
 //const FKey ViveTracker_Trigger_Axis("ViveTracker_Trigger_Axis");
 //const FKey ViveTracker_Trackpad_X("ViveTracker_Trackpad_X");
 //const FKey ViveTracker_Trackpad_Y("ViveTracker_Trackpad_Y");
@@ -154,6 +154,9 @@ FViveTracker::FViveTracker(XrPath InUserPath, XrPath InPersistentPath, const cha
 	: PersistentPath(InPersistentPath)
 	, RolePath(InUserPath)
 	, GripAction(XR_NULL_HANDLE)
+	, TriggerAction(XR_NULL_HANDLE)
+	, MenuAction(XR_NULL_HANDLE)
+	, SqueezeAction(XR_NULL_HANDLE)
 	, VibrationAction(XR_NULL_HANDLE)
 	, GripDeviceId(-1)
 	, GripActionSpace(XR_NULL_HANDLE)
@@ -197,20 +200,24 @@ FOpenXRViveTrackerPlugin::FOpenXRViveTrackerPlugin(const TSharedRef<FGenericAppl
 	//AxisKeys.Add(ViveTracker_Trackpad_Y, TEXT("/input/trackpad/y"));
 
 
-	//EKeys::AddMenuCategoryDisplayInfo("ViveTracker",
-	//	LOCTEXT("ViveTrackerSubCategory", "Vive Tracker"), TEXT("GraphEditor.PadEvent_16x"));
+	EKeys::AddMenuCategoryDisplayInfo("ViveTracker",
+		LOCTEXT("ViveTrackerSubCategory", "Vive Tracker"), TEXT("GraphEditor.PadEvent_16x"));
 
-	//EKeys::AddKey(FKeyDetails(ViveTracker_System_Click,
-	//	LOCTEXT("ViveTracker_System_Click", "ViveTracker System Press"),
-	//	FKeyDetails::GamepadKey | FKeyDetails::NotBlueprintBindableKey, "ViveTracker"));
+	// EKeys::AddKey(FKeyDetails(ViveTracker_System_Click,
+	// 	LOCTEXT("ViveTracker_System_Click", "ViveTracker System Press"),
+	// 	FKeyDetails::GamepadKey | FKeyDetails::NotBlueprintBindableKey, "ViveTracker"));
 
-	//EKeys::AddKey(FKeyDetails(ViveTracker_Menu_Click,
-	//	LOCTEXT("ViveTracker_Menu_Click", "ViveTracker Menu Press"),
-	//	FKeyDetails::GamepadKey | FKeyDetails::NotBlueprintBindableKey, "ViveTracker"));
+	EKeys::AddKey(FKeyDetails(ViveTracker_Menu_Click,
+		LOCTEXT("ViveTracker_Menu_Click", "ViveTracker Menu Press"),
+		FKeyDetails::GamepadKey | FKeyDetails::NotBlueprintBindableKey, "ViveTracker"));
 
-	//EKeys::AddKey(FKeyDetails(ViveTracker_Trigger_Click,
-	//	LOCTEXT("ViveTracker_Trigger_Click", "ViveTracker Trigger Press"),
-	//	FKeyDetails::GamepadKey | FKeyDetails::NotBlueprintBindableKey, "ViveTracker"));
+	EKeys::AddKey(FKeyDetails(ViveTracker_Trigger_Click,
+		LOCTEXT("ViveTracker_Trigger_Click", "ViveTracker Trigger Press"),
+		FKeyDetails::GamepadKey | FKeyDetails::NotBlueprintBindableKey, "ViveTracker"));
+
+	EKeys::AddKey(FKeyDetails(ViveTracker_Squeeze_Click,
+		LOCTEXT("ViveTracker_Squeeze_Click", "ViveTracker Squeeze Press"),
+		FKeyDetails::GamepadKey | FKeyDetails::NotBlueprintBindableKey, "ViveTracker"));
 
 	//EKeys::AddKey(FKeyDetails(ViveTracker_Trigger_Axis,
 	//	LOCTEXT("ViveTracker_Trigger_Axis", "ViveTracker Trigger Axis"),
@@ -275,6 +282,8 @@ void FOpenXRViveTrackerPlugin::PostCreateInstance(XrInstance InInstance)
 void FOpenXRViveTrackerPlugin::OnEvent(XrSession InSession, const XrEventDataBaseHeader* InHeader)
 {
 	FOpenXRHMD* OpenXRHMD = GetXRSystem();
+
+	// UE_LOG(LogOpenXRViveTracker, Log, TEXT("Event type: %d"), InHeader->type);
 
 	switch (InHeader->type)
 	{
@@ -408,8 +417,7 @@ void FOpenXRViveTrackerPlugin::AddActions(XrInstance InInstance, TFunction<XrAct
 		}
 
 		InputSettings->ForceRebuildKeymaps();
-	}*/
-
+	} */
 
 	for (TPair<XrPath, FName>& Pair : PathRoles)
 	{
@@ -418,11 +426,23 @@ void FOpenXRViveTrackerPlugin::AddActions(XrInstance InInstance, TFunction<XrAct
 
 		TArray<XrPath> EmptySubactionPaths;
 
+		FString Role = PathToString(InInstance, Tracker.RolePath);
+		// UE_LOG(LogOpenXRViveTracker, Log, TEXT("Role: %s"), *Role);
+
+		if (Name == ViveTrackerSourceNames::Tracker_Shoulder_Right.ToString())
+		{
+			Tracker.TriggerAction = AddAction(XR_ACTION_TYPE_BOOLEAN_INPUT, FName(TEXT("Vive Tracker Trigger ") + Name), EmptySubactionPaths);
+			Tracker.MenuAction = AddAction(XR_ACTION_TYPE_BOOLEAN_INPUT, FName(TEXT("Vive Tracker Menu ") + Name), EmptySubactionPaths);
+			Tracker.SqueezeAction = AddAction(XR_ACTION_TYPE_BOOLEAN_INPUT, FName(TEXT("Vive Tracker Squeeze ") + Name), EmptySubactionPaths);
+
+			// Bindings.Add(XrActionSuggestedBinding{ Tracker.MenuAction, GetPath(InInstance, Role + "/input/menu") });
+			// Bindings.Add(XrActionSuggestedBinding{ Tracker.SqueezeAction, GetPath(InInstance, Role + "/input/grip/click") });
+			// Bindings.Add(XrActionSuggestedBinding{ Tracker.TriggerAction, GetPath(InInstance, Role + "/input/trigger/click") });
+		}
+
+	
 		Tracker.GripAction = AddAction(XR_ACTION_TYPE_POSE_INPUT, FName(TEXT("Vive Tracker Grip ") + Name), EmptySubactionPaths);
 		Tracker.VibrationAction = AddAction(XR_ACTION_TYPE_VIBRATION_OUTPUT, FName("Vive Tracker Vibration " + Name), EmptySubactionPaths);
-
-		FString Role = PathToString(InInstance, Tracker.RolePath);
-
 
 		Bindings.Add(XrActionSuggestedBinding{ Tracker.GripAction, GetPath(InInstance, Role + "/input/grip/pose") });
 		Bindings.Add(XrActionSuggestedBinding{ Tracker.VibrationAction, GetPath(InInstance, Role + "/output/haptic") });
@@ -430,9 +450,7 @@ void FOpenXRViveTrackerPlugin::AddActions(XrInstance InInstance, TFunction<XrAct
 		Trackers.Add(Pair.Value, Tracker);
 	}
 
-
 	check(XR_SUCCEEDED(xrStringToPath(InInstance, "/interaction_profiles/htc/vive_tracker_htcx", &InteractionProfile)));
-
 
 	XrInteractionProfileSuggestedBinding ProfileBinding;
 	ProfileBinding.type = XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING;
@@ -440,6 +458,7 @@ void FOpenXRViveTrackerPlugin::AddActions(XrInstance InInstance, TFunction<XrAct
 	ProfileBinding.interactionProfile = InteractionProfile;
 	ProfileBinding.countSuggestedBindings = Bindings.Num();
 	ProfileBinding.suggestedBindings = Bindings.GetData();
+
 	XR_ENSURE(xrSuggestInteractionProfileBindings(InInstance, &ProfileBinding));
 
 
@@ -468,6 +487,7 @@ void FOpenXRViveTrackerPlugin::PostSyncActions(XrSession InSession)
 {
 
 }
+
 
 bool FOpenXRViveTrackerPlugin::GetControllerOrientationAndPosition(const int32 ControllerIndex, const FName MotionSource, FRotator& OutOrientation, FVector& OutPosition, float WorldToMetersScale) const
 {
@@ -537,6 +557,7 @@ ETrackingStatus FOpenXRViveTrackerPlugin::GetControllerTrackingStatus(const int3
 			bool bIsTracked = OpenXRHMD->GetIsTracked(Tracker->GripDeviceId);
 			return bIsTracked ? ETrackingStatus::Tracked : ETrackingStatus::NotTracked;
 		}
+
 	}
 
 	return ETrackingStatus::NotTracked;
@@ -563,7 +584,73 @@ void FOpenXRViveTrackerPlugin::Tick(float DeltaTime)
 
 void FOpenXRViveTrackerPlugin::SendControllerEvents()
 {
+	FOpenXRHMD* OpenXRHMD = GetXRSystem();
 
+	if (!Trackers.Contains(ViveTrackerSourceNames::Tracker_Shoulder_Right))
+	{
+		return;
+	}
+	XrSession Session = OpenXRHMD->GetSession();
+	if (Session == XR_NULL_HANDLE)
+	{
+		return;
+	}
+	const FViveTracker* Tracker = Trackers.Find(ViveTrackerSourceNames::Tracker_Shoulder_Right);
+
+	TArray<XrAction> Actions;
+	Actions.Add(Tracker->TriggerAction);
+	Actions.Add(Tracker->MenuAction);
+	Actions.Add(Tracker->SqueezeAction);
+
+	for (XrAction Action : Actions)
+	{
+		XrActionStateGetInfo GetInfo;
+		GetInfo.type = XR_TYPE_ACTION_STATE_GET_INFO;
+		GetInfo.next = nullptr;
+		GetInfo.subactionPath = XR_NULL_PATH;
+		GetInfo.action = Action;
+
+		XrActionStateBoolean State;
+		State.type = XR_TYPE_ACTION_STATE_BOOLEAN;
+		State.next = nullptr;
+		XrResult Result = xrGetActionStateBoolean(Session, &GetInfo, &State);
+
+		if (XR_SUCCEEDED(Result) && State.isActive)
+		{
+			if (State.changedSinceLastSync)
+			{
+				if (State.currentState)
+				{
+					if (Action == Tracker->TriggerAction)
+					{
+						MessageHandler->OnControllerButtonPressed(ViveTracker_Trigger_Click.GetFName(), 0, false);
+					}
+					else if (Action == Tracker->MenuAction)
+					{
+						MessageHandler->OnControllerButtonPressed(ViveTracker_Menu_Click.GetFName(), 0, false);
+					}
+					else if (Action == Tracker->SqueezeAction)
+					{
+						MessageHandler->OnControllerButtonPressed(ViveTracker_Squeeze_Click.GetFName(), 0, false);
+					}
+				}
+				else {
+					if (Action == Tracker->TriggerAction)
+					{
+						MessageHandler->OnControllerButtonReleased(ViveTracker_Trigger_Click.GetFName(), 0, false);
+					}
+					else if (Action == Tracker->MenuAction)
+					{
+						MessageHandler->OnControllerButtonReleased(ViveTracker_Menu_Click.GetFName(), 0, false);
+					}
+					else if (Action == Tracker->SqueezeAction)
+					{
+						MessageHandler->OnControllerButtonReleased(ViveTracker_Squeeze_Click.GetFName(), 0, false);
+					}
+				}
+			}
+		}
+	}
 }
 
 void FOpenXRViveTrackerPlugin::SetMessageHandler(const TSharedRef<FGenericApplicationMessageHandler>& InMessageHandler)
